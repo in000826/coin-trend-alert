@@ -12,8 +12,8 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 
 def fetch_ohlcv(symbol, timeframe='1h', limit=100):
-    binance = ccxt.binance()
-    data = binance.fetch_ohlcv(symbol, timeframe=timeframe, limit=limit)
+    bybit = ccxt.bybit()
+    data = bybit.fetch_ohlcv(symbol, timeframe=timeframe, limit=limit)
     df = pd.DataFrame(data, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
     return df
 
@@ -36,12 +36,14 @@ def check_signal(df):
 
 def send_telegram(msg):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-    requests.post(url, data={'chat_id': CHAT_ID, 'text': msg})
+    res = requests.post(url, data={'chat_id': CHAT_ID, 'text': msg})
+    if res.status_code != 200:
+        print(f"텔레그램 전송 실패: {res.text}")
 
 def get_top_volume_symbols(limit=20):
-    binance = ccxt.binance()
-    markets = binance.load_markets()
-    tickers = binance.fetch_tickers()
+    bybit = ccxt.bybit()
+    markets = bybit.load_markets()
+    tickers = bybit.fetch_tickers()
     usdt_pairs = {
         symbol: ticker
         for symbol, ticker in tickers.items()
@@ -50,7 +52,7 @@ def get_top_volume_symbols(limit=20):
     sorted_pairs = sorted(usdt_pairs.items(), key=lambda x: x[1]['baseVolume'], reverse=True)
     return [symbol for symbol, _ in sorted_pairs[:limit]]
 
-def run_strategy():
+def run_alert_logic():
     always_watch = ['XRP/USDT', 'DOGE/USDT']
     top_symbols = get_top_volume_symbols(limit=20)
     symbols = list(set(always_watch + top_symbols))
@@ -67,10 +69,12 @@ def run_strategy():
             print(f"오류: {symbol} - {e}")
 
 @app.route("/run")
-def trigger():
-    run_strategy()
-    return "Run complete"
+def run():
+    run_alert_logic()
+    return "알림 작업 완료", 200
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
+
 
