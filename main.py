@@ -11,8 +11,17 @@ app = Flask(__name__)
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 
+# ✅ Bybit 클라이언트 생성 함수
+def get_bybit_client():
+    return ccxt.bybit({
+        'options': {'defaultType': 'spot'},
+        'headers': {
+            'User-Agent': 'Mozilla/5.0 (compatible; MyBot/1.0; +https://example.com/bot)'
+        }
+    })
+
 def fetch_ohlcv(symbol, timeframe='1h', limit=100):
-    bybit = ccxt.bybit()
+    bybit = get_bybit_client()
     data = bybit.fetch_ohlcv(symbol, timeframe=timeframe, limit=limit)
     df = pd.DataFrame(data, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
     return df
@@ -41,7 +50,7 @@ def send_telegram(msg):
         print(f"텔레그램 전송 실패: {res.text}")
 
 def get_top_volume_symbols(limit=20):
-    bybit = ccxt.bybit()
+    bybit = get_bybit_client()
     markets = bybit.load_markets()
     tickers = bybit.fetch_tickers()
     usdt_pairs = {
