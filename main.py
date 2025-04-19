@@ -11,9 +11,10 @@ app = Flask(__name__)
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 
-# ✅ Bybit 클라이언트 생성 함수
 def get_bybit_client():
     return ccxt.bybit({
+        'apiKey': os.getenv("BYBIT_API_KEY"),
+        'secret': os.getenv("BYBIT_SECRET"),
         'options': {'defaultType': 'spot'},
         'headers': {
             'User-Agent': 'Mozilla/5.0 (compatible; MyBot/1.0; +https://example.com/bot)'
@@ -85,5 +86,6 @@ def run():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
+
 
 
