@@ -1,3 +1,4 @@
+from flask import Flask
 import ccxt
 import pandas as pd
 import pandas_ta as ta
@@ -5,8 +6,10 @@ import requests
 from datetime import datetime
 import os
 
-BOT_TOKEN = os.getenv("7852635338:AAH9_Eg_ZKsvkQuiaPlOS-XgwssQf3S4HOw")
-CHAT_ID = os.getenv("8118454837")
+app = Flask(__name__)
+
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+CHAT_ID = os.getenv("CHAT_ID")
 
 def fetch_ohlcv(symbol, timeframe='1h', limit=100):
     binance = ccxt.binance()
@@ -47,7 +50,7 @@ def get_top_volume_symbols(limit=20):
     sorted_pairs = sorted(usdt_pairs.items(), key=lambda x: x[1]['baseVolume'], reverse=True)
     return [symbol for symbol, _ in sorted_pairs[:limit]]
 
-def main():
+def run_alert_logic():
     always_watch = ['XRP/USDT', 'DOGE/USDT']
     top_symbols = get_top_volume_symbols(limit=20)
     symbols = list(set(always_watch + top_symbols))
@@ -63,5 +66,10 @@ def main():
         except Exception as e:
             print(f"오류: {symbol} - {e}")
 
+@app.route("/run")
+def run():
+    run_alert_logic()
+    return "알림 작업 완료", 200
+
 if __name__ == "__main__":
-    main()
+    app.run()
