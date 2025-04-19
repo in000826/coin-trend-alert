@@ -50,7 +50,7 @@ def get_top_volume_symbols(limit=20):
     sorted_pairs = sorted(usdt_pairs.items(), key=lambda x: x[1]['baseVolume'], reverse=True)
     return [symbol for symbol, _ in sorted_pairs[:limit]]
 
-def run_alert_logic():
+def run_strategy():
     always_watch = ['XRP/USDT', 'DOGE/USDT']
     top_symbols = get_top_volume_symbols(limit=20)
     symbols = list(set(always_watch + top_symbols))
@@ -67,9 +67,10 @@ def run_alert_logic():
             print(f"오류: {symbol} - {e}")
 
 @app.route("/run")
-def run():
-    run_alert_logic()
-    return "알림 작업 완료", 200
+def trigger():
+    run_strategy()
+    return "Run complete"
 
 if __name__ == "__main__":
-    app.run()
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+
