@@ -10,19 +10,16 @@ app = Flask(__name__)
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
-
-def get_bybit_client():
-    return ccxt.bybit({
-        'apiKey': os.getenv("BYBIT_API_KEY"),
-        'secret': os.getenv("BYBIT_SECRET"),
-        'options': {'defaultType': 'spot'},
-        'headers': {
-            'User-Agent': 'Mozilla/5.0 (compatible; MyBot/1.0; +https://example.com/bot)'
-        }
-    })
+BYBIT_API_KEY = os.getenv("BYBIT_API_KEY")
+BYBIT_SECRET = os.getenv("BYBIT_SECRET")
 
 def fetch_ohlcv(symbol, timeframe='1h', limit=100):
-    bybit = get_bybit_client()
+    bybit = ccxt.bybit({
+        'apiKey': BYBIT_API_KEY,
+        'secret': BYBIT_SECRET,
+        'enableRateLimit': True,
+        'options': {'defaultType': 'spot'}
+    })
     data = bybit.fetch_ohlcv(symbol, timeframe=timeframe, limit=limit)
     df = pd.DataFrame(data, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
     return df
@@ -50,30 +47,16 @@ def send_telegram(msg):
     if res.status_code != 200:
         print(f"텔레그램 전송 실패: {res.text}")
 
-def get_top_volume_symbols(limit=20):
-    bybit = get_bybit_client()
-    markets = bybit.load_markets()
-    tickers = bybit.fetch_tickers()
-    usdt_pairs = {
-        symbol: ticker
-        for symbol, ticker in tickers.items()
-        if symbol.endswith('/USDT') and symbol in markets
-    }
-    sorted_pairs = sorted(usdt_pairs.items(), key=lambda x: x[1]['baseVolume'], reverse=True)
-    return [symbol for symbol, _ in sorted_pairs[:limit]]
-
 def run_alert_logic():
     always_watch = ['XRP/USDT', 'DOGE/USDT']
-    top_symbols = get_top_volume_symbols(limit=20)
-    symbols = list(set(always_watch + top_symbols))
-
+    symbols = always_watch  # 바이비트에서 거래량 기반 랭킹은 오류가 많아서 고정
     for symbol in symbols:
         try:
             df = fetch_ohlcv(symbol)
             signal = check_signal(df)
             if signal:
                 emoji = '📈' if signal == 'long' else '📉'
-                message = f"[{emoji} {signal.upper()} 신호]\n{symbol} @ {datetime.now().strftime('%H:%M')}"
+                message = f"[{emoji} {signal.upper()} 신호]\n{symbol} @ {datetime.now().strftime('%H:%M')} (Bybit)"
                 send_telegram(message)
         except Exception as e:
             print(f"오류: {symbol} - {e}")
