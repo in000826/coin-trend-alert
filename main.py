@@ -8,10 +8,10 @@ import os
 
 app = Flask(__name__)
 
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-CHAT_ID = os.getenv("CHAT_ID")
+BOT_TOKEN     = os.getenv("BOT_TOKEN")
+CHAT_ID       = os.getenv("CHAT_ID")
 BYBIT_API_KEY = os.getenv("BYBIT_API_KEY")
-BYBIT_SECRET = os.getenv("BYBIT_SECRET")
+BYBIT_SECRET  = os.getenv("BYBIT_SECRET")
 
 def fetch_ohlcv(symbol, timeframe='1h', limit=100):
     bybit = ccxt.bybit({
@@ -25,13 +25,13 @@ def fetch_ohlcv(symbol, timeframe='1h', limit=100):
     return df
 
 def check_signal(df):
-    df['ema9'] = ta.ema(df['close'], length=9)
-    df['ema21'] = ta.ema(df['close'], length=21)
-    df['ema55'] = ta.ema(df['close'], length=55)
-    macd = ta.macd(df['close'])
-    df['hist'] = macd['MACDh_12_26_9']
-    latest = df.iloc[-1]
-    prev = df.iloc[-2]
+    df['ema9']   = ta.ema(df['close'], length=9)
+    df['ema21']  = ta.ema(df['close'], length=21)
+    df['ema55']  = ta.ema(df['close'], length=55)
+    macd        = ta.macd(df['close'])
+    df['hist']  = macd['MACDh_12_26_9']
+    latest      = df.iloc[-1]
+    prev        = df.iloc[-2]
 
     if (latest['ema9'] > latest['ema21'] > latest['ema55'] and
         prev['hist'] < 0 and latest['hist'] > 0):
@@ -47,16 +47,40 @@ def send_telegram(msg):
     if res.status_code != 200:
         print(f"텔레그램 전송 실패: {res.text}")
 
+def get_top_volume_symbols(limit=20):
+    bybit   = ccxt.bybit({
+        'apiKey': BYBIT_API_KEY,
+        'secret': BYBIT_SECRET,
+        'enableRateLimit': True,
+        'options': {'defaultType': 'spot'}
+    })
+    tickers = bybit.fetch_tickers()
+    usdt_pairs = {
+        symbol: ticker
+        for symbol, ticker in tickers.items()
+        if symbol.endswith('/USDT')
+    }
+    # baseVolume 기준 내림차순 정렬
+    sorted_pairs = sorted(usdt_pairs.items(),
+                          key=lambda x: x[1].get('baseVolume', 0),
+                          reverse=True)
+    return [symbol for symbol, _ in sorted_pairs[:limit]]
+
 def run_alert_logic():
-    always_watch = ['XRP/USDT', 'DOGE/USDT']
-    symbols = always_watch  # 바이비트에서 거래량 기반 랭킹은 오류가 많아서 고정
+    always_watch = ['XRP/USDT', 'DOGE/USDT', 'SOL/USDT', 'PEPE/USDT', 'SUI/USDT']
+    top_symbols  = get_top_volume_symbols(limit=20)
+    symbols      = list(set(always_watch + top_symbols))
+
     for symbol in symbols:
         try:
-            df = fetch_ohlcv(symbol)
+            df     = fetch_ohlcv(symbol)
             signal = check_signal(df)
             if signal:
-                emoji = '📈' if signal == 'long' else '📉'
-                message = f"[{emoji} {signal.upper()} 신호]\n{symbol} @ {datetime.now().strftime('%H:%M')} (Bybit)"
+                emoji   = '📈' if signal == 'long' else '📉'
+                message = (
+                    f"[{emoji} {signal.upper()} 신호]\n"
+                    f"{symbol} @ {datetime.now().strftime('%H:%M')} (Bybit)"
+                )
                 send_telegram(message)
         except Exception as e:
             print(f"오류: {symbol} - {e}")
@@ -69,6 +93,7 @@ def run():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
+
 
 
 
